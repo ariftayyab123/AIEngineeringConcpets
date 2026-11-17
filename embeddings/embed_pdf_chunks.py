@@ -61,22 +61,26 @@ def build_records(chunks: list[Document], vectors: list[list[float]]) -> list[Ch
     return records
 
 
+def generate_invoice_records() -> tuple[int, list[ChunkRecord]]:
+    pages = load_pdf_pages(DEFAULT_PDF)
+    chunks = split_pdf_pages(pages)
+    if not chunks:
+        raise ValueError("The PDF produced no text chunks.")
+    texts = [chunk.page_content for chunk in chunks]
+    model = HuggingFaceEmbeddings(model_name=MODEL_NAME, model_kwargs={"device": "cpu"})
+    vectors = model.embed_documents(texts)
+    return len(pages), build_records(chunks, vectors)
+
+
 def main() -> int:
     try:
-        pages = load_pdf_pages(DEFAULT_PDF)
-        chunks = split_pdf_pages(pages)
-        if not chunks:
-            raise ValueError("The PDF produced no text chunks.")
-        texts = [chunk.page_content for chunk in chunks]
-        model = HuggingFaceEmbeddings(model_name=MODEL_NAME, model_kwargs={"device": "cpu"})
-        vectors = model.embed_documents(texts)
-        records = build_records(chunks, vectors)
+        page_count, records = generate_invoice_records()
     except (OSError, ValueError, PdfReadError) as error:
         print(f"Validation failed: {error}", file=sys.stderr)
         return 1
 
-    print(f"Original pages: {len(pages)}")
-    print(f"Generated chunks: {len(chunks)}")
+    print(f"Original pages: {page_count}")
+    print(f"Generated chunks: {len(records)}")
     print(f"Generated embeddings: {len(records)}")
     print(f"Embedding dimensions: {len(records[0]['embedding'])}")
 
